@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+*.log
+*.tmp
+# 构建产物 client.js 必须提交：从 git 安装时没有构建步骤
+!client.js

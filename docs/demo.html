@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>dsh-usage-dashboard · 截图演示</title>
+<style>
+  /* 只复刻宿主的容器与主题令牌，截图只用于文档，不含任何真实数据 */
+  :root{
+    --dsw-alias-bg-base:#151517; --dsw-alias-bg-layer-1:#232324; --dsw-alias-bg-layer-2:#2c2c2e;
+    --dsw-alias-bg-layer-3:#333335; --dsw-alias-border-l1:rgba(255,255,255,.06);
+    --dsw-alias-border-l2:rgba(255,255,255,.12); --dsw-alias-border-l3:rgba(255,255,255,.16);
+    --dsw-alias-label-primary:#f9fafb; --dsw-alias-label-secondary:#cfd3d6;
+    --dsw-alias-label-tertiary:#adb2b8; --dsw-alias-label-dimmed:#43454a;
+    --dsw-alias-label-primary-foreground:#151517;
+    --dsw-alias-button-primary-fill:#f9fafb;
+    --dsw-alias-state-business-primary:#7aaaff; --dsw-alias-state-error-primary:#f25a5a;
+    --dsw-alias-state-success-primary:#22c55e; --dsw-alias-state-success-secondary:#4ed17e;
+    --dsw-alias-state-warn-label:#f7ad31;
+    --dsw-alias-brand-primary-new-colorprimary-new-color:#5686fe;
+    --dsw-alias-interactive-bg-hover:rgba(255,255,255,.08);
+    --dsw-alias-interactive-bg-hover-solid:rgba(255,255,255,.12);
+  }
+  body{margin:0;background:#101012;font:13px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:#f9fafb;display:flex;justify-content:center;align-items:flex-start;padding:24px}
+  #stage{width:564px;padding:20px;background:#232324;border-radius:12px}
+</style>
+</head>
+<body><div id="stage"></div>
+<script>window.__err=null;window.addEventListener('error',e=>{window.__err=(e.error&&e.error.stack?e.error.stack:e.message)+' @@'+e.lineno});</script>
+<script type="module">
+// 演示数据：项目名、金额、调用次数全部编造，与任何真实账号无关
+const HOUR=3600000, DAY=86400000, TZ=8*HOUR
+const now=Date.now(), dayStart=Math.floor((now+TZ)/DAY)*DAY-TZ
+const dayOf=ms=>new Date(ms+TZ).toISOString().slice(0,10)
+const PROJECTS=['acme-web','docs-site','ml-pipeline','cli-tools']
+const PROVIDERS=['deepseek-official','deepseek-account','acme-gateway']
+
+// 造 30 天的假事实行：项目/Provider 各有不同权重，周末掉量，整体缓慢增长，
+// 这样截图里的排名与趋势才像真实数据，而不是三个一样的占位块。
+const facts=[]
+const pWeight={'acme-web':1,'docs-site':0.42,'ml-pipeline':1.75,'cli-tools':0.22}
+const vWeight={'deepseek-official':1,'deepseek-account':0.34,'acme-gateway':0.58}
+for(let d=29;d>=0;d--){
+  const base=dayStart-d*DAY
+  const weekday=new Date(base+TZ).getUTCDay()
+  const weekend=(weekday===0||weekday===6)?0.45:1
+  const growth=0.6+(29-d)*0.028
+  for(const project of PROJECTS){
+    for(const provider of PROVIDERS){
+      const w=pWeight[project]*vWeight[provider]*weekend*growth
+      // 每天三个使用时段：[小时, 倍数]
+      for(const [hour,mult] of [[9,3],[14,5],[20,2]]){
+        const jitter=1+(((d*13+hour*7)%11)-5)/60
+        const k=w*mult*jitter
+        const input=Math.round(120e3*k)
+        const output=Math.round(6e3*k)
+        const cacheRead=Math.round(900e3*k)
+        const priced=provider!=='acme-gateway'
+        facts.push({t:base+hour*HOUR,day:dayOf(base+hour*HOUR),hour,project,provider,
+          model:'demo-model',inputTokens:input,outputTokens:output,cacheReadTokens:cacheRead,cacheWriteTokens:0,
+          calls:Math.max(1,Math.round(mult*w*1.4)),
+          cost:priced?Number((input/1e6*0.55+output/1e6*2.2+cacheRead/1e6*0.07).toFixed(4)):null,
+          planCost:priced?null:Number((input/1e6*0.8+output/1e6*3.1).toFixed(4)),
+          currency:'CNY'})
+      }
+    }
+  }
+}
+const scan={facts,scannedAt:now,sessionCount:42,warnings:[],errors:[],providers:[],projects:[],routes:[],daily:[],hourly:{},
+  totals:{totalTokens:0},pricing:{},defaults:{},pricingPath:''}
+
+const filters={range:'30d',project:'*',provider:'*',model:'*',custom:null}
+const { buildView } = await import('../view-model.js')
+const { createComponents } = await import('../chart-kit.js')
+const view=buildView(scan,filters,now)
+const t=k=>({
+  output:'输出',input:'输入',cacheRead:'缓存读取',cacheWrite:'缓存写入',project:'项目',providers:'Provider 数',
+  sessions:'会话',tokens:'Token',unpriced:'未定价',expand:'展开',collapse:'收起',total:'合计',
+  cost:'预估费用',totalTokens:'总 Token',planCost:'订阅折算',calls:'次调用',
+  trend:'使用趋势',byToken:'Token',byCost:'费用',breakdown:'Provider 消耗分布',projects:'项目明细',
+  noData:'该范围内没有记录',clickToFilter:'点击按此项筛选',unknownProject:'未归属项目',
+  costHint:'按本地价格配置与峰谷时段估算的按量费用，不是账单实付金额。',
+  planHint:'订阅制的用量按官方牌价折算的参考值，不是实际支出。',
+  balance:'DeepSeek 余额',balanceHint:'余额属于账号，多个 API key / 工具共享，不能反推累计消费。',
+  balDeepseekApi:'DeepSeek 官方 API',balDeepseekAccount:'DeepSeek 登录账号',
+  bonus:'赠送',toppedUp:'充值',unavailable:'不可用',signedOut:'未登录',
+  prevPeriod:'对比上期',withCache:'含缓存',noCache:'不含缓存',checked:'更新于',
+  factCount:'数据点',caveat:'其他机器与未记录 usage 的请求不计入',
+}[k]??k)
+const moneyFmt=(n,c)=>new Intl.NumberFormat('zh-CN',{style:'currency',currency:c||'CNY',maximumFractionDigits:2}).format(n)
+const moneyBucket=b=>Object.entries(b||{}).filter(([,n])=>Number.isFinite(n)).map(([c,n])=>moneyFmt(n,c)).join(' + ')
+const moneyLines=b=>Object.entries(b||{}).filter(([,n])=>Number.isFinite(n)).map(([c,n])=>moneyFmt(n,c))
+
+const h=(type,props,...children)=>{
+  if(typeof type==='function') return type({...props,children})
+  const el=document.createElement(type)
+  for(const [k,v] of Object.entries(props||{})){
+    if(k==='children') continue
+    if(k==='className') el.className=v
+    else if(k==='style'&&v&&typeof v==='object') Object.assign(el.style,v)
+    else if(k.startsWith('on')&&typeof v==='function') el.addEventListener(k.slice(2).toLowerCase(),v)
+    else if(v===true) el.setAttribute(k,'')
+    else if(v!==false&&v!=null) el.setAttribute(k,v)
+  }
+  for(const c of children.flat(Infinity)) if(c!=null) el.append(c.nodeType?c:document.createTextNode(String(c)))
+  return el
+}
+// 复用真实组件：不复制任何 UI 代码
+const React={useState:init=>{let v=typeof init==='function'?init():init;const set=x=>{v=typeof x==='function'?x(v):x;render()};return [v,set]},
+  useRef:c=>({current:c}),useEffect:()=>{},useCallback:f=>f}
+const kit=createComponents({React,h})
+const {Panel,Segmented,Select,StatPrimary,StatParts,TrendChart,RankList,ProjectTable,BalanceList,compact}=kit
+
+const stage=document.getElementById('stage')
+function render(){
+  const cashLines=moneyLines(view.totals.cost), planLines=moneyLines(view.totals.planCost)
+  const pctOf=c=>view.totals.tokens>0?c/view.totals.tokens*100:0
+  const aux=[{key:'in',label:t('input'),value:compact(view.totals.input),pct:pctOf(view.totals.input),sw:'input'},
+             {key:'out',label:t('output'),value:compact(view.totals.output),pct:pctOf(view.totals.output),sw:'output'},
+             {key:'cr',label:t('cacheRead'),value:compact(view.totals.cacheRead),pct:pctOf(view.totals.cacheRead),sw:'cache'}]
+  stage.innerHTML=''
+  const styleEl=document.createElement('style'); styleEl.textContent=window.__CHART_CSS__||''
+  stage.append(h('div',{'data-usage-dashboard':true},
+    h('div',{className:'ud-stack'},
+      h('div',{className:'ud-head'},
+        h('div',{className:'ud-head-text'},
+          h('h2',{className:'ud-h1'},'用量与花费'),
+          h('p',{className:'ud-lede'},'本机 DSH 用量统计 · 费用按配置估算')),
+        h('div',{className:'ud-head-actions'},
+          h('span',{className:'ud-updated'},'更新于 '+new Date(now).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})),
+          h('button',{type:'button',className:'ud-icon-btn','aria-label':'刷新用量统计'},(()=>{
+            const s=document.createElementNS('http://www.w3.org/2000/svg','svg')
+            s.setAttribute('width',16);s.setAttribute('height',16);s.setAttribute('viewBox','0 0 16 16')
+            s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width',1.5)
+            s.setAttribute('stroke-linecap','round')
+            s.innerHTML='<path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5V5.5H10.5"/>'
+            return s})()))),
+      h('div',{className:'ud-filters'},
+        h('div',{className:'ud-filter-row ud-filter-range'},
+          h(Segmented,{options:[{key:'today',label:'今天'},{key:'24h',label:'24H'},{key:'7d',label:'7D'},
+            {key:'30d',label:'30D'},{key:'90d',label:'90D'},{key:'all',label:'全部'}],
+            value:'30d',onChange:()=>{},ariaLabel:'时间'})),
+        h('div',{className:'ud-filter-row ud-filter-selects'},
+          h(Select,{value:'*',onChange:()=>{},options:PROJECTS.map(p=>({value:p,label:p})),ariaLabel:'项目',placeholder:'全部项目'}),
+          h(Select,{value:'*',onChange:()=>{},options:PROVIDERS.map(p=>({value:p,label:p})),ariaLabel:'Provider',placeholder:'全部 Provider'}))),
+      h('div',{className:'ud-kpis'},
+        h('div',{className:'ud-kpi-grid'},
+          h(StatPrimary,{label:t('cost'),value:cashLines.length?cashLines:t('unpriced'),hint:t('costHint'),
+            delta:{text:'+18%',dir:0.18,title:t('prevPeriod')}}),
+          h(StatPrimary,{label:t('totalTokens'),value:compact(view.totals.tokens),
+            delta:{text:'+24%',dir:0.24,title:t('prevPeriod')}})),
+        h('div',{className:'ud-mix'},
+          h('div',{className:'ud-mix-track'},aux.filter(x=>x.pct>0).map(x=>h('span',{key:x.key,className:'ud-mix-seg ud-mix-'+x.sw,style:{width:x.pct+'%'}}))),
+          h('div',{className:'ud-mix-legend'},aux.map(x=>h('span',{key:x.key,className:'ud-mix-item'},
+            h('span',{className:'ud-swatch ud-swatch-'+x.sw}),
+            h('span',{className:'ud-mix-label'},x.label),
+            h('span',{className:'ud-mix-val'},x.value),
+            h('span',{className:'ud-mix-pct'},x.pct.toFixed(1)+'%'))))),
+        h('div',{className:'ud-kpi-foot'},
+          h('span',{className:'ud-foot-item'},h('span',{className:'ud-foot-label'},t('planCost')),
+            h('span',{className:'ud-foot-val'},'≈ '+planLines.join(' + '))),
+          h('span',{className:'ud-foot-item'},h('span',{className:'ud-foot-label'},t('calls')),
+            h('span',{className:'ud-foot-val'},view.totals.calls.toLocaleString('zh-CN'))),
+          h('span',{className:'ud-foot-item'},h('span',{className:'ud-foot-label'},t('sessions')),
+            h('span',{className:'ud-foot-val'},String(scan.sessionCount))))),
+      h(Panel,{title:t('balance'),subtitle:'更新于 20:00'},
+        h(BalanceList,{rows:[
+          {provider:'deepseek-official',status:'ready',available:true,scope:'账号余额',wallets:[{currency:'CNY',total:'128.40',toppedUp:'100.00',granted:'28.40'}]},
+          {provider:'deepseek-account',status:'ready',wallets:[{currency:'CNY',total:'42.66'}],bonusWallets:[{currency:'CNY',balance:'6.00'}]}],
+          locale:t,labelOf:p=>p==='deepseek-official'?t('balDeepseekApi'):p==='deepseek-account'?t('balDeepseekAccount'):p})),
+      h('div',{className:'ud-split'},
+        h(Panel,{title:t('trend'),subtitle:'按天',tools:h('div',{className:'ud-panel-tools'},
+          h(Segmented,{size:'sm',options:[{key:'all',label:'含缓存'},{key:'nocache',label:'不含缓存'}],value:'all',onChange:()=>{},ariaLabel:'缓存'}),
+          h(Segmented,{size:'sm',options:[{key:'token',label:'Token'},{key:'cost',label:'费用'}],value:'token',onChange:()=>{},ariaLabel:'趋势'}))},
+          h(TrendChart,{series:view.series,mode:'token',granularity:view.gran,currency:'CNY',locale:t,hideCache:false}),
+          h('div',{className:'ud-legend',style:{marginTop:'10px'}},
+            h('span',{className:'ud-legend-item'},h('span',{className:'ud-swatch ud-swatch-output'}),t('output')),
+            h('span',{className:'ud-legend-item'},h('span',{className:'ud-swatch ud-swatch-input'}),t('input')),
+            h('span',{className:'ud-legend-item'},h('span',{className:'ud-swatch ud-swatch-cache'}),t('cacheRead')))),
+        h(Panel,{title:t('breakdown')},h(RankList,{items:view.byProvider,mode:'token',total:view.totals,locale:t,onPick:()=>{}}))),
+      h(Panel,{title:t('projects'),pad:false},h(ProjectTable,{rows:view.byProject,sessionOf:new Map([['acme-web',12],['docs-site',5],['ml-pipeline',18],['cli-tools',3]]),locale:t,onPick:()=>{},moneyBucket,openPaths:[]})),
+      h('p',{className:'ud-lede',style:{margin:0}},t('caveat')+' · '+t('factCount')+' '+view.factCount))))
+  if(styleEl.textContent) stage.prepend(styleEl)
+}
+window.__demoReady=false
+const cssMod=await import('../chart-kit.js')
+const cssStyle=document.createElement('style'); cssStyle.textContent=cssMod.CHART_CSS; document.head.append(cssStyle)
+render()
+window.__demoReady=true
+</script>
+</body>
+</html>

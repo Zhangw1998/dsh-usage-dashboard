@@ -1,0 +1,7 @@
+# dsh-usage-dashboard 的组合包层：向 profile 的插件树插入一行 Host 插件。
+# 行名按包名引用，不写死本机路径，任何人 clone 下来都能直接加载。
+# Host 半边（./index.js）注册 `GET /api/usage.dashboard` 端点：扫描会话日志、查官方余额；
+# 浏览器半边（package.json 的 dsh.client）渲染设置页并 fetch 该端点。
+- insert:
+    - id: dsh-usage-dashboard
+      name: 'dsh-usage-dashboard'

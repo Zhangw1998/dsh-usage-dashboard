@@ -1,0 +1,55 @@
+{
+  "name": "dsh-usage-dashboard",
+  "version": "0.0.1",
+  "description": "Token 用量与花费面板：按 provider / 项目统计 token 与调用次数，按官方峰谷价估算费用，并显示 DeepSeek 账户余额。Usage & cost dashboard for DeepSeek Harness.",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./host": "./host.js",
+    "./client": "./client.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "files": [
+    "*.js",
+    "cordis.patch.yml",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build-client.mjs",
+    "prepare": "node build-client.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zhangw1998/dsh-usage-dashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Zhangw1998/dsh-usage-dashboard/issues"
+  },
+  "homepage": "https://github.com/Zhangw1998/dsh-usage-dashboard#readme",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "usage",
+    "dashboard",
+    "token",
+    "cost"
+  ]
+}
