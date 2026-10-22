@@ -878,7 +878,8 @@ const CHART_CSS = `
 
 /* ---------------- 悬浮卡（输入页常驻） ---------------- */
 [data-usage-dashboard].ud-fly-host{position:static}
-[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;display:flex;align-items:center;
+[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;max-width:calc(100vw - 32px);
+  display:flex;align-items:center;
   gap:2px;padding-right:4px;
   border:1px solid var(--dsw-alias-border-l2);border-radius:var(--ud-r);
   background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px rgba(0,0,0,.28);
@@ -887,8 +888,11 @@ const CHART_CSS = `
 [data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px;display:flex;flex-direction:column;
   align-items:stretch;gap:0}
 [data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 4px 0 12px;
-  background:none;color:inherit;font-size:12px;cursor:pointer;
+  background:none;color:inherit;font-size:12px;cursor:pointer;white-space:nowrap;min-width:0;
   border-radius:var(--ud-r);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-v{white-space:nowrap;font-variant-numeric:tabular-nums;
+  color:var(--dsw-alias-label-primary);font-weight:500}
+[data-usage-dashboard] .ud-fly-v + .ud-fly-v{margin-left:0}
 [data-usage-dashboard] .ud-fly-refresh{width:24px;height:24px;padding:0;border:0;border-radius:6px;
   background:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;flex:none;
   display:inline-flex;align-items:center;justify-content:center;transition:background .12s ease,color .12s ease}
@@ -899,7 +903,6 @@ const CHART_CSS = `
 [data-usage-dashboard] .ud-fly-dot{width:6px;height:6px;border-radius:50%;background:var(--ud-c-cache);flex:none}
 [data-usage-dashboard] .ud-fly.is-stale .ud-fly-dot{background:var(--dsw-alias-label-dimmed)}
 [data-usage-dashboard] .ud-fly.is-stale .ud-fly-v{color:var(--dsw-alias-label-tertiary)}
-[data-usage-dashboard] .ud-fly-tag{font-size:11px;color:var(--dsw-alias-label-tertiary)}
 [data-usage-dashboard] .ud-fly-sep{color:var(--dsw-alias-label-dimmed)}
 [data-usage-dashboard] .ud-fly-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 [data-usage-dashboard] .ud-fly-title{font-size:12px;font-weight:600}
@@ -1298,7 +1301,6 @@ const CHART_CSS = `
             onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); patch({ open: true }) } },
           },
             h('span', { className: 'ud-fly-dot' }),
-            h('span', { className: 'ud-fly-tag' }, t('today')),
             h('span', { className: 'ud-fly-v' }, cashText),
             h('span', { className: 'ud-fly-sep' }, '\u00b7'),
             h('span', { className: 'ud-fly-v' }, tokens)),

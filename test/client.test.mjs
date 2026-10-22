@@ -477,7 +477,7 @@ await test('the floating card shows today cost and tokens, and expands to the br
   await e.settle()
   const pill = await e.renderSlot('shell.overlay')
   const text = flatten(pill)
-  assert.ok(text.includes('今日'), '折叠态要有「今日」')
+  assert.ok(!text.includes('今日'), '胶囊里不再显示「今日」（省空间，避免超出）')
   assert.ok(byClass(pill, 'ud-fly-refresh').length === 1, '折叠态只该有一个刷新按钮')
   assert.ok(/¥\s?12\.50/.test(text), '折叠态显示今日费用')
   assert.ok(text.includes('4M') || text.includes('4.1M'), '折叠态显示今日 token')
@@ -532,7 +532,7 @@ await test('the settings switch turns the floating card off and back on', async 
   sw.children.find(c => c && c.type === 'input').props.onChange({ target: { checked: true } })
   await new Promise(r => setImmediate(r))
   const on = await e.renderSlot('shell.overlay')
-  assert.ok(flatten(on).includes('今日'), '打开后悬浮卡回来')
+  assert.ok(flatten(on).includes('¥'), '打开后悬浮卡回来')
 })
 
 await test('account balance is shown again, with top-up and bonus split apart', async () => {
