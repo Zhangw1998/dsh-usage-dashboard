@@ -17,7 +17,8 @@ A usage and cost dashboard for **DeepSeek Harness (DSH)**: token and call counts
 - **Provider breakdown** — input / output / cache / call count per provider, with the bar segmented by composition.
 - **Project table** — expand a row to see which providers that project used, with tokens and cost each.
 - **Balance** — DeepSeek API-key wallet and logged-in account wallet on separate rows, with top-up and bonus listed apart.
-- **Auto refresh** — about every 2 minutes while the page is visible, silent; manual refresh always available.
+- **Floating card** — pinned bottom-right on the chat page, collapsed to a `Today ¥3.42 · 1.2M` pill; expand for today's breakdown and balance. Draggable, position remembered.
+- **Refresh policy** — refreshes only when you open the settings page, expand the card, or click refresh. **No background polling**: a full scan costs ~12s, so an idle page must not burn CPU. Data older than 10 minutes is dimmed as a staleness cue.
 
 <details>
 <summary>More screenshots</summary>
@@ -103,7 +104,7 @@ python3 -m http.server 8899
 
 ## Known limitations
 
-- **A full scan takes ~10–15 s** (it replays every session log), which is why auto refresh runs every ~2 minutes rather than every few seconds.
+- **A full scan takes ~10–15 s** (it replays every session log), so refresh happens on entry/expand/manual only — no timer. If you leave the settings page open, the numbers stay frozen until you refresh.
 - **Session counts are exact only without filters** — the host does not bucket sessions by time, so that column shows `—` under a project/provider filter instead of a wrong number.
 - **Balance is DeepSeek-only** — `deepseek-official` (API-key wallet) and `deepseek-account` (logged-in wallet). Other providers have no balance adapter.
 - Weekly aggregation for 90D is implemented but needs enough history to show more than one bar.

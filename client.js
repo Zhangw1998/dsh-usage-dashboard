@@ -876,6 +876,42 @@ const CHART_CSS = `
 [data-usage-dashboard] .ud-sub-money{text-align:right;font-variant-numeric:tabular-nums;
   color:var(--dsw-alias-label-tertiary)}
 
+/* ---------------- 悬浮卡（输入页常驻） ---------------- */
+[data-usage-dashboard].ud-fly-host{position:static}
+[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;
+  border:1px solid var(--dsw-alias-border-l2);border-radius:var(--ud-r);
+  background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px rgba(0,0,0,.28);
+  cursor:grab;touch-action:none;user-select:none;color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly:active{cursor:grabbing}
+[data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px}
+[data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  border:0;background:none;color:inherit;font:inherit;font-size:12px;cursor:pointer;
+  border-radius:var(--ud-r);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-dot{width:6px;height:6px;border-radius:50%;background:var(--ud-c-cache);flex:none}
+[data-usage-dashboard] .ud-fly.is-stale .ud-fly-dot{background:var(--dsw-alias-label-dimmed)}
+[data-usage-dashboard] .ud-fly.is-stale .ud-fly-v{color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-tag{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-sep{color:var(--dsw-alias-label-dimmed)}
+[data-usage-dashboard] .ud-fly-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+[data-usage-dashboard] .ud-fly-title{font-size:12px;font-weight:600}
+[data-usage-dashboard] .ud-fly-time{margin-left:auto;font-size:10px;color:var(--dsw-alias-label-tertiary);
+  font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-btn{width:20px;height:20px;padding:0;border:0;border-radius:5px;background:none;
+  color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;font-size:13px;line-height:1}
+[data-usage-dashboard] .ud-fly-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly-kpi{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:1px 0}
+[data-usage-dashboard] .ud-fly-kpi-l{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-kpi-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+[data-usage-dashboard] .ud-fly-parts{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:6px;font-size:10px;
+  line-height:15px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-bal{margin-top:8px;padding-top:7px;border-top:1px solid var(--ud-hairline);
+  display:flex;flex-direction:column;gap:2px}
+[data-usage-dashboard] .ud-fly-bal-row{display:flex;justify-content:space-between;gap:8px;font-size:10px;
+  line-height:15px;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-bal-v{color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-warn{margin-top:6px;font-size:10px;line-height:14px;
+  color:var(--dsw-alias-state-warn-label)}
+
 /* ---------------- 余额 / 额度 ---------------- */
 [data-usage-dashboard] .ud-bal{display:flex;flex-direction:column}
 [data-usage-dashboard] .ud-bal-row{display:flex;align-items:baseline;gap:var(--ud-s3);padding:6px 0;min-width:0}
@@ -980,6 +1016,7 @@ const CHART_CSS = `
       bonus: '赠送', toppedUp: '充值', unavailable: '不可用',
       // 面板显示名：直接用 provider id 认不出是哪个，两个 DeepSeek 钱包也要分清
       balDeepseekApi: 'DeepSeek 官方 API', balDeepseekAccount: 'DeepSeek 登录账号',
+      today: '今日', collapse: '折叠', staleHint: '数据超过 10 分钟未更新，展开或点刷新可更新',
     }
     const en = {
       output: 'Output', input: 'Input', cacheRead: 'Cache read', cacheWrite: 'Cache write',
@@ -1010,6 +1047,7 @@ const CHART_CSS = `
       signedOut: 'Not signed in', noAdapter: 'No DeepSeek balance info (not the same as zero)',
       bonus: 'bonus', toppedUp: 'topped up', unavailable: 'unavailable',
       balDeepseekApi: 'DeepSeek API', balDeepseekAccount: 'DeepSeek account',
+      today: 'Today', collapse: 'Collapse', staleHint: 'Not updated for over 10 minutes — expand or refresh',
     }
 
     /* ---------------- 偏好 ---------------- */
@@ -1075,31 +1113,23 @@ const CHART_CSS = `
       }, [])
       const lastAt = React.useRef(0)
       lastAt.current = state.scan?.scannedAt ?? 0
+      // 只有「真的在看」才刷新：进入详情页 / 展开悬浮卡 / 手动点刷新。
+      // 不再定时轮询——一次全量重算约 12 秒，挂着不动不该一直烧 CPU。
+      const ENTRY_MS = 30000
+      const touch = React.useCallback(() => {
+        if (Date.now() - lastAt.current < ENTRY_MS) return
+        load(true, true)
+      }, [load])
       React.useEffect(() => {
         let cancelled = false
-        // 数据超过这个年龄就不再回放会话日志（一次全量重算约 12 秒）
-        const AUTO_MS = 120000, ENTRY_MS = 60000
-        const tick = minAge => {
-          if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-          if (Date.now() - lastAt.current < minAge) return
-          load(true, true)
-        }
-        // 进面板先出缓存（秒开），数据旧了再静默补一次最新，不让人干等 12 秒
+        // 进入时先出缓存（秒开），数据旧了再静默补一次
         load(false).then(scan => {
           if (cancelled || !scan) return
           if (Date.now() - (scan.scannedAt ?? 0) >= ENTRY_MS) load(true, true)
         })
-        const timer = typeof setInterval === 'function' ? setInterval(() => tick(AUTO_MS), 30000) : null
-        const onVisible = () => tick(ENTRY_MS)
-        if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible)
-        return () => {
-          cancelled = true
-          if (timer !== null) clearInterval(timer)
-          if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible)
-          gen.current++
-        }
+        return () => { cancelled = true; gen.current++ }
       }, [load])
-      return { ...state, reload: () => load(true) }
+      return { ...state, reload: () => load(true), touch }
     }
 
     /* ---------------- 小组件 ---------------- */
@@ -1121,6 +1151,107 @@ const CHART_CSS = `
     }
 
     /* ---------------- 视图 ---------------- */
+
+    /* ---------------- 悬浮卡（输入页常驻） ---------------- */
+
+    const OVERLAY_KEY = 'dsh-usage-dashboard.overlay'
+
+    function readOverlay() {
+      try { return JSON.parse(localStorage.getItem(OVERLAY_KEY) || 'null') || {} } catch { return {} }
+    }
+
+    /**
+     * 输入页常驻的迷你用量卡：默认折叠成胶囊，展开看今日明细。
+     * 只在展开与手动时刷新——挂着不动不耗 CPU；数据超过 10 分钟会灰化提示不是实时的。
+     */
+    function UsageOverlay({ t }) {
+      const state = useDashboard()
+      const [conf, setConf] = React.useState(readOverlay)
+      const [drag, setDrag] = React.useState(null)
+      const moved = React.useRef(false)
+      const cardRef = React.useRef(null)
+      const open = conf.open === true
+      const patch = next => setConf(prev => {
+        const merged = { ...prev, ...next }
+        try { localStorage.setItem(OVERLAY_KEY, JSON.stringify(merged)) } catch { /* 隐私模式忽略 */ }
+        return merged
+      })
+      const wasOpen = React.useRef(open)
+      React.useEffect(() => {
+        if (open && !wasOpen.current) state.touch()
+        wasOpen.current = open
+      }, [open, state])
+      if (!state.scan) return null
+
+      const now = Date.now()
+      const today = buildView(state.scan, { range: 'today', project: '*', provider: '*', model: '*', custom: null }, now)
+      const cash = kit.moneyLines(today.totals.cost)
+      const cashText = cash.length ? cash[0] : '—'
+      const tokens = kit.compact(today.totals.tokens)
+      const stale = state.scan.scannedAt ? now - state.scan.scannedAt > 600000 : false
+      const clock = state.scan.scannedAt ? clockOf(state.scan.scannedAt) : '—'
+      const style = conf.x != null ? { left: conf.x + 'px', top: conf.y + 'px' } : { right: '16px', bottom: '16px' }
+
+      const onDown = e => {
+        const r = cardRef.current?.getBoundingClientRect()
+        if (!r) return
+        moved.current = false
+        e.currentTarget.setPointerCapture?.(e.pointerId)
+        setDrag({ dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height, x0: e.clientX, y0: e.clientY })
+      }
+      const onMove = e => {
+        if (!drag) return
+        if (Math.abs(e.clientX - drag.x0) > 4 || Math.abs(e.clientY - drag.y0) > 4) moved.current = true
+        if (!moved.current) return
+        patch({
+          x: Math.min(Math.max(e.clientX - drag.dx, 8), Math.max(8, window.innerWidth - drag.w - 8)),
+          y: Math.min(Math.max(e.clientY - drag.dy, 8), Math.max(8, window.innerHeight - drag.h - 8)),
+        })
+      }
+      const onUp = () => setDrag(null)
+
+      const card = open
+        ? h('div', { ref: cardRef, className: 'ud-fly ud-fly-open' + (stale ? ' is-stale' : ''), style,
+            onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp },
+          h('div', { className: 'ud-fly-head' },
+            h('span', { className: 'ud-fly-title' }, t('today')),
+            h('span', { className: 'ud-fly-time' }, clock),
+            h('button', { type: 'button', className: 'ud-fly-btn', title: t('collapse'),
+              onClick: () => patch({ open: false }) }, '\u2013')),
+          h('div', { className: 'ud-fly-kpi' },
+            h('span', { className: 'ud-fly-kpi-l' }, t('cost')), h('span', { className: 'ud-fly-kpi-v' }, cashText)),
+          h('div', { className: 'ud-fly-kpi' },
+            h('span', { className: 'ud-fly-kpi-l' }, t('totalTokens')), h('span', { className: 'ud-fly-kpi-v' }, tokens)),
+          h('div', { className: 'ud-fly-parts' },
+            h('span', null, t('input') + ' ' + kit.compact(today.totals.input)),
+            h('span', null, t('output') + ' ' + kit.compact(today.totals.output)),
+            h('span', null, t('cacheRead') + ' ' + kit.compact(today.totals.cacheRead + today.totals.cacheWrite)),
+            h('span', null, t('calls') + ' ' + today.totals.calls.toLocaleString('zh-CN'))),
+          (state.balances?.rows?.length
+            ? h('div', { className: 'ud-fly-bal' }, state.balances.rows.map(r => {
+              const w = (r.wallets ?? [])[0]
+              return h('div', { key: r.provider, className: 'ud-fly-bal-row' },
+                h('span', null, r.provider === 'deepseek-official' ? t('balDeepseekApi') : t('balDeepseekAccount')),
+                h('span', { className: 'ud-fly-bal-v' },
+                  r.status === 'ready' && w ? kit.moneyLines({ [w.currency]: Number(w.total) })[0] : t('unavailable')))
+            }))
+            : null),
+          stale ? h('div', { className: 'ud-fly-warn' }, t('staleHint')) : null)
+        : h('div', { ref: cardRef, className: 'ud-fly' + (stale ? ' is-stale' : ''), style,
+            onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
+            title: `${t('checked')} ${clock}` },
+          h('button', { type: 'button', className: 'ud-fly-pill',
+            onClick: () => { if (!moved.current) patch({ open: true }) } },
+            h('span', { className: 'ud-fly-dot' }),
+            h('span', { className: 'ud-fly-tag' }, t('today')),
+            h('span', { className: 'ud-fly-v' }, cashText),
+            h('span', { className: 'ud-fly-sep' }, '\u00b7'),
+            h('span', { className: 'ud-fly-v' }, tokens)))
+
+      return h('div', { 'data-usage-dashboard': true, className: 'ud-fly-host' },
+        h('style', { 'data-plugin': NS }, CHART_CSS),
+        card)
+    }
 
     function UsageSection({ t }) {
       const state = useDashboard()
@@ -1310,6 +1441,10 @@ const CHART_CSS = `
     return { inject: ['slots', 'locale'], apply(ctx) {
       const t = ctx.locale.bind(NS)
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'usage-dashboard: locale')
+      ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+        name: 'shell.overlay', id: 'usage-dashboard-overlay', order: 20,
+        inject: () => ({ t }),
+      }, UsageOverlay))
       ctx.slots.inject('settings.section', () => ctx.slots.register(
         { name: 'settings.section', id: 'usage-dashboard', order: 30, label: () => t('nav'), locale: NS },
         UsageSection))

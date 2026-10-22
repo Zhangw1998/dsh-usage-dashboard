@@ -58,6 +58,7 @@ function makeScan(facts) {
 /** 带持久化 hook 槽的 fake React */
 function environment({ scan, seedStorage = {}, request, balances } = {}) {
   let definition, component, dictionaries
+  const components = {}
   const slots = { current: null }
   const slotState = new Map()
   const effects = []
@@ -113,7 +114,7 @@ function environment({ scan, seedStorage = {}, request, balances } = {}) {
   plugin.apply({
     locale: { bind: () => t, register: (ns, d) => { dictionaries = d; return () => {} } },
     effect: f => f(),
-    slots: { inject: (n, f) => f(), register: (d, c) => { component = c; return () => {} } },
+    slots: { inject: (n, f) => f(), register: (d, c) => { components[d.name] = c; if (d.name === 'settings.section') component = c; return () => {} } },
   })
 
   const render = node => {
@@ -155,7 +156,15 @@ function environment({ scan, seedStorage = {}, request, balances } = {}) {
     return new Response(JSON.stringify(body))
   }
   return {
-    tree, settle, dictionaries, effects, calls, store, t, timers, setVisibility,
+    tree, settle, dictionaries, effects, calls, store, t, timers, setVisibility, components,
+    // 槽位组件有自己的 hook 槽与 effect：先渲染收集 effect，跑完再渲染一次
+    renderSlot: async (name, props = {}) => {
+      const comp = components[name]
+      render(h(comp, { t, ...props }))
+      for (const fn of effects.splice(0)) fn()
+      for (let i = 0; i < 12; i++) await new Promise(r => setImmediate(r))
+      return render(h(comp, { t, ...props }))
+    },
     restoreTimers: () => { globalThis.setInterval = realSetInterval; globalThis.clearInterval = realClearInterval },
   }
 }
@@ -443,22 +452,35 @@ await test('call count is aggregated and shown with the totals', async () => {
 
 // ---------------- 自动刷新 ----------------
 
-await test('auto refresh re-scans when data is stale, without a spinner or error flash', async () => {
-  const stale = makeScan([fact()])
-  stale.scannedAt = NOW - 5 * 60 * 1000           // 数据已过期 5 分钟
-  const e = environment({ scan: stale })
-  const first = await e.settle()
-  assert.ok(e.timers.some(t => t.ms === 30000), '必须注册 30 秒的自动刷新检查')
-  const before = e.calls.filter(c => c.includes('refresh=1')).length
-  e.timers.find(t => t.ms === 30000).fn()          // 模拟定时器到点
-  await new Promise(r => setImmediate(r))
-  await new Promise(r => setImmediate(r))
-  const after = e.calls.filter(c => c.includes('refresh=1')).length
-  assert.ok(after > before, '过期数据应触发一次强制重算')
-  const btn = byClass(e.tree(), 'ud-icon-btn')[0]
-  assert.equal(btn.props.disabled, false, '自动刷新不占用刷新按钮')
-  assert.equal(byClass(e.tree(), 'ud-alert-err').length, 0, '自动刷新不弹错误')
-  assert.ok(flatten(first).includes('更新于'))
+await test('there is no periodic polling: refresh happens on entry, expand and manual only', async () => {
+  const old = makeScan([fact()])
+  old.scannedAt = NOW - 5 * 60 * 1000
+  const e = environment({ scan: old })
+  await e.settle()
+  assert.equal(e.timers.length, 0, '不得再注册任何定时器（挂着不动不应烧 CPU）')
+  assert.ok(!source.includes('setInterval'), '源码里不应再有周期轮询')
+  assert.ok(source.includes("'shell.overlay'"), '悬浮卡必须挂到 shell.overlay')
+})
+
+await test('the floating card shows today cost and tokens, and expands to the breakdown', async () => {
+  const scan = makeScan([fact({ cost: 12.5, inputTokens: 1_000_000, outputTokens: 100_000, cacheReadTokens: 3_000_000 })])
+  const e = environment({ scan, balances: { checkedAt: NOW, rows: [
+    { provider: 'deepseek-official', status: 'ready', available: true, wallets: [{ currency: 'CNY', total: '128.40' }] },
+  ] } })
+  await e.settle()
+  const pill = await e.renderSlot('shell.overlay')
+  const text = flatten(pill)
+  assert.ok(text.includes('今日'), '折叠态要有「今日」')
+  assert.ok(/¥\s?12\.50/.test(text), '折叠态显示今日费用')
+  assert.ok(text.includes('4M') || text.includes('4.1M'), '折叠态显示今日 token')
+  // 展开
+  const btn = all(pill, 'button')[0]
+  btn.props.onClick()
+  const openTree = await e.renderSlot('shell.overlay')
+  const openText = flatten(openTree)
+  assert.ok(openText.includes('输入') && openText.includes('输出') && openText.includes('缓存读取'))
+  assert.ok(openText.includes('次调用'))
+  assert.ok(openText.includes('128.40'), '展开后显示 DeepSeek 余额')
 })
 
 await test('entering the panel paints from cache, then refreshes once when that cache is old', async () => {
@@ -478,27 +500,6 @@ await test('entering the panel does not re-scan when the cache is recent', async
   await e.settle()
   assert.equal(e.calls.filter(c => c.includes('usage.dashboard?refresh=1')).length, 0, '刚算过就别重复扫')
 })
-
-await test('auto refresh stays idle while data is fresh or the page is hidden', async () => {
-  const e = environment({ scan: makeScan([fact()]) })   // scannedAt = NOW，刚更新过
-  await e.settle()
-  const before = e.calls.filter(c => c.includes('refresh=1')).length
-  e.timers.find(t => t.ms === 30000).fn()
-  await new Promise(r => setImmediate(r))
-  assert.equal(e.calls.filter(c => c.includes('refresh=1')).length, before, '数据还新就不该重算')
-
-  const stale = makeScan([fact()])
-  stale.scannedAt = NOW - 5 * 60 * 1000
-  const hidden = environment({ scan: stale })
-  await hidden.settle()
-  hidden.setVisibility('hidden')
-  const b2 = hidden.calls.filter(c => c.includes('refresh=1')).length
-  hidden.timers.find(t => t.ms === 30000).fn()
-  await new Promise(r => setImmediate(r))
-  assert.equal(hidden.calls.filter(c => c.includes('refresh=1')).length, b2, '页面不可见时不应重算')
-})
-
-// ---------------- 余额 / 额度 ----------------
 
 const balancesOf = rows => ({ rows, checkedAt: NOW })
 

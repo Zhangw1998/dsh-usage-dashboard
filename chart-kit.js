@@ -621,6 +621,42 @@ export const CHART_CSS = `
 [data-usage-dashboard] .ud-sub-money{text-align:right;font-variant-numeric:tabular-nums;
   color:var(--dsw-alias-label-tertiary)}
 
+/* ---------------- 悬浮卡（输入页常驻） ---------------- */
+[data-usage-dashboard].ud-fly-host{position:static}
+[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;
+  border:1px solid var(--dsw-alias-border-l2);border-radius:var(--ud-r);
+  background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px rgba(0,0,0,.28);
+  cursor:grab;touch-action:none;user-select:none;color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly:active{cursor:grabbing}
+[data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px}
+[data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
+  border:0;background:none;color:inherit;font:inherit;font-size:12px;cursor:pointer;
+  border-radius:var(--ud-r);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-dot{width:6px;height:6px;border-radius:50%;background:var(--ud-c-cache);flex:none}
+[data-usage-dashboard] .ud-fly.is-stale .ud-fly-dot{background:var(--dsw-alias-label-dimmed)}
+[data-usage-dashboard] .ud-fly.is-stale .ud-fly-v{color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-tag{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-sep{color:var(--dsw-alias-label-dimmed)}
+[data-usage-dashboard] .ud-fly-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+[data-usage-dashboard] .ud-fly-title{font-size:12px;font-weight:600}
+[data-usage-dashboard] .ud-fly-time{margin-left:auto;font-size:10px;color:var(--dsw-alias-label-tertiary);
+  font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-btn{width:20px;height:20px;padding:0;border:0;border-radius:5px;background:none;
+  color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;font-size:13px;line-height:1}
+[data-usage-dashboard] .ud-fly-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly-kpi{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:1px 0}
+[data-usage-dashboard] .ud-fly-kpi-l{font-size:11px;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-kpi-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+[data-usage-dashboard] .ud-fly-parts{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:6px;font-size:10px;
+  line-height:15px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-bal{margin-top:8px;padding-top:7px;border-top:1px solid var(--ud-hairline);
+  display:flex;flex-direction:column;gap:2px}
+[data-usage-dashboard] .ud-fly-bal-row{display:flex;justify-content:space-between;gap:8px;font-size:10px;
+  line-height:15px;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-bal-v{color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-warn{margin-top:6px;font-size:10px;line-height:14px;
+  color:var(--dsw-alias-state-warn-label)}
+
 /* ---------------- 余额 / 额度 ---------------- */
 [data-usage-dashboard] .ud-bal{display:flex;flex-direction:column}
 [data-usage-dashboard] .ud-bal-row{display:flex;align-items:baseline;gap:var(--ud-s3);padding:6px 0;min-width:0}
