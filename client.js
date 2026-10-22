@@ -905,9 +905,12 @@ const CHART_CSS = `
 [data-usage-dashboard] .ud-fly-title{font-size:12px;font-weight:600}
 [data-usage-dashboard] .ud-fly-time{margin-left:auto;font-size:10px;color:var(--dsw-alias-label-tertiary);
   font-variant-numeric:tabular-nums}
-[data-usage-dashboard] .ud-fly-btn{width:20px;height:20px;padding:0;border:0;border-radius:5px;background:none;
-  color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;font-size:13px;line-height:1}
-[data-usage-dashboard] .ud-fly-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly-btn{width:24px;height:24px;padding:0;border:0;border-radius:6px;
+  background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  transition:background .12s ease,color .12s ease}
+[data-usage-dashboard] .ud-fly-btn:hover{background:var(--dsw-alias-interactive-bg-hover);
+  color:var(--dsw-alias-label-primary)}
 [data-usage-dashboard] .ud-fly-kpi{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:1px 0}
 [data-usage-dashboard] .ud-fly-kpi-l{font-size:11px;color:var(--dsw-alias-label-tertiary)}
 [data-usage-dashboard] .ud-fly-kpi-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
@@ -1155,6 +1158,15 @@ const CHART_CSS = `
       return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
     }
 
+    /** 折叠图标：向下箭头，表示「收回成胶囊」 */
+    function collapseIcon() {
+      return h('svg', {
+        width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none',
+        stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round',
+        'aria-hidden': 'true',
+      }, h('path', { d: 'M4 6.5 8 10.5 12 6.5' }))
+    }
+
     /** 刷新图标：16px 线性 SVG，颜色继承 currentColor（跟随主题） */
     function refreshIcon() {
       return h('svg', {
@@ -1252,8 +1264,12 @@ const CHART_CSS = `
           h('div', { className: 'ud-fly-head' },
             h('span', { className: 'ud-fly-title' }, t('today')),
             h('span', { className: 'ud-fly-time' }, clock),
-            h('button', { type: 'button', className: 'ud-fly-btn', title: t('collapse'),
-              onClick: () => patch({ open: false }) }, '\u2013')),
+            h('button', {
+              type: 'button', className: 'ud-fly-btn', title: t('collapse'),
+              'aria-label': t('collapse'),
+              onPointerDown: e => e.stopPropagation(),
+              onClick: () => patch({ open: false }),
+            }, collapseIcon())),
           h('div', { className: 'ud-fly-kpi' },
             h('span', { className: 'ud-fly-kpi-l' }, t('cost')), h('span', { className: 'ud-fly-kpi-v' }, cashText)),
           h('div', { className: 'ud-fly-kpi' },

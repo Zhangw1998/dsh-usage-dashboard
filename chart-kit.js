@@ -650,9 +650,12 @@ export const CHART_CSS = `
 [data-usage-dashboard] .ud-fly-title{font-size:12px;font-weight:600}
 [data-usage-dashboard] .ud-fly-time{margin-left:auto;font-size:10px;color:var(--dsw-alias-label-tertiary);
   font-variant-numeric:tabular-nums}
-[data-usage-dashboard] .ud-fly-btn{width:20px;height:20px;padding:0;border:0;border-radius:5px;background:none;
-  color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;font-size:13px;line-height:1}
-[data-usage-dashboard] .ud-fly-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly-btn{width:24px;height:24px;padding:0;border:0;border-radius:6px;
+  background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  transition:background .12s ease,color .12s ease}
+[data-usage-dashboard] .ud-fly-btn:hover{background:var(--dsw-alias-interactive-bg-hover);
+  color:var(--dsw-alias-label-primary)}
 [data-usage-dashboard] .ud-fly-kpi{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:1px 0}
 [data-usage-dashboard] .ud-fly-kpi-l{font-size:11px;color:var(--dsw-alias-label-tertiary)}
 [data-usage-dashboard] .ud-fly-kpi-v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
