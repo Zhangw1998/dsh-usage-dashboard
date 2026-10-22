@@ -623,15 +623,24 @@ export const CHART_CSS = `
 
 /* ---------------- 悬浮卡（输入页常驻） ---------------- */
 [data-usage-dashboard].ud-fly-host{position:static}
-[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;
+[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;display:flex;align-items:center;
+  gap:2px;padding-right:4px;
   border:1px solid var(--dsw-alias-border-l2);border-radius:var(--ud-r);
   background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px rgba(0,0,0,.28);
   cursor:grab;touch-action:none;user-select:none;color:var(--dsw-alias-label-primary)}
 [data-usage-dashboard] .ud-fly:active{cursor:grabbing}
-[data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px}
-[data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
-  border:0;background:none;color:inherit;font:inherit;font-size:12px;cursor:pointer;
+[data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px;display:flex;flex-direction:column;
+  align-items:stretch;gap:0}
+[data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 4px 0 12px;
+  background:none;color:inherit;font-size:12px;cursor:pointer;
   border-radius:var(--ud-r);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-refresh{width:24px;height:24px;padding:0;border:0;border-radius:6px;
+  background:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;transition:background .12s ease,color .12s ease}
+[data-usage-dashboard] .ud-fly-refresh:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);
+  color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly-refresh:disabled{cursor:default;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-refresh[disabled] svg{animation:ud-rot .9s linear infinite}
 [data-usage-dashboard] .ud-fly-dot{width:6px;height:6px;border-radius:50%;background:var(--ud-c-cache);flex:none}
 [data-usage-dashboard] .ud-fly.is-stale .ud-fly-dot{background:var(--dsw-alias-label-dimmed)}
 [data-usage-dashboard] .ud-fly.is-stale .ud-fly-v{color:var(--dsw-alias-label-tertiary)}
@@ -673,6 +682,13 @@ export const CHART_CSS = `
 [data-usage-dashboard] .ud-bal-foot{margin:var(--ud-s2) 0 0;font-size:11px;line-height:16px;
   color:var(--dsw-alias-label-tertiary)}
 [data-usage-dashboard] .ud-bal-empty{padding:14px 8px;font-size:12px}
+
+[data-usage-dashboard] .ud-foot-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap}
+[data-usage-dashboard] .ud-switch{display:inline-flex;align-items:center;gap:6px;font-size:11px;
+  color:var(--dsw-alias-label-tertiary);cursor:pointer;flex:none}
+[data-usage-dashboard] .ud-switch input{width:13px;height:13px;margin:0;cursor:pointer;accent-color:var(--ud-c-cache)}
+[data-usage-dashboard] .ud-switch:hover{color:var(--dsw-alias-label-secondary)}
 
 /* ---------------- 状态 ---------------- */
 [data-usage-dashboard] .ud-empty{padding:32px 8px;text-align:center;font-size:12px;

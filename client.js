@@ -878,15 +878,24 @@ const CHART_CSS = `
 
 /* ---------------- 悬浮卡（输入页常驻） ---------------- */
 [data-usage-dashboard].ud-fly-host{position:static}
-[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;
+[data-usage-dashboard] .ud-fly{position:fixed;z-index:30;min-width:0;display:flex;align-items:center;
+  gap:2px;padding-right:4px;
   border:1px solid var(--dsw-alias-border-l2);border-radius:var(--ud-r);
   background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px rgba(0,0,0,.28);
   cursor:grab;touch-action:none;user-select:none;color:var(--dsw-alias-label-primary)}
 [data-usage-dashboard] .ud-fly:active{cursor:grabbing}
-[data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px}
-[data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;
-  border:0;background:none;color:inherit;font:inherit;font-size:12px;cursor:pointer;
+[data-usage-dashboard] .ud-fly-open{width:236px;padding:10px 12px;display:flex;flex-direction:column;
+  align-items:stretch;gap:0}
+[data-usage-dashboard] .ud-fly-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 4px 0 12px;
+  background:none;color:inherit;font-size:12px;cursor:pointer;
   border-radius:var(--ud-r);font-variant-numeric:tabular-nums}
+[data-usage-dashboard] .ud-fly-refresh{width:24px;height:24px;padding:0;border:0;border-radius:6px;
+  background:none;color:var(--dsw-alias-label-tertiary);cursor:pointer;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;transition:background .12s ease,color .12s ease}
+[data-usage-dashboard] .ud-fly-refresh:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);
+  color:var(--dsw-alias-label-primary)}
+[data-usage-dashboard] .ud-fly-refresh:disabled{cursor:default;color:var(--dsw-alias-label-tertiary)}
+[data-usage-dashboard] .ud-fly-refresh[disabled] svg{animation:ud-rot .9s linear infinite}
 [data-usage-dashboard] .ud-fly-dot{width:6px;height:6px;border-radius:50%;background:var(--ud-c-cache);flex:none}
 [data-usage-dashboard] .ud-fly.is-stale .ud-fly-dot{background:var(--dsw-alias-label-dimmed)}
 [data-usage-dashboard] .ud-fly.is-stale .ud-fly-v{color:var(--dsw-alias-label-tertiary)}
@@ -928,6 +937,13 @@ const CHART_CSS = `
 [data-usage-dashboard] .ud-bal-foot{margin:var(--ud-s2) 0 0;font-size:11px;line-height:16px;
   color:var(--dsw-alias-label-tertiary)}
 [data-usage-dashboard] .ud-bal-empty{padding:14px 8px;font-size:12px}
+
+[data-usage-dashboard] .ud-foot-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap}
+[data-usage-dashboard] .ud-switch{display:inline-flex;align-items:center;gap:6px;font-size:11px;
+  color:var(--dsw-alias-label-tertiary);cursor:pointer;flex:none}
+[data-usage-dashboard] .ud-switch input{width:13px;height:13px;margin:0;cursor:pointer;accent-color:var(--ud-c-cache)}
+[data-usage-dashboard] .ud-switch:hover{color:var(--dsw-alias-label-secondary)}
 
 /* ---------------- 状态 ---------------- */
 [data-usage-dashboard] .ud-empty{padding:32px 8px;text-align:center;font-size:12px;
@@ -1016,7 +1032,7 @@ const CHART_CSS = `
       bonus: '赠送', toppedUp: '充值', unavailable: '不可用',
       // 面板显示名：直接用 provider id 认不出是哪个，两个 DeepSeek 钱包也要分清
       balDeepseekApi: 'DeepSeek 官方 API', balDeepseekAccount: 'DeepSeek 登录账号',
-      today: '今日', collapse: '折叠', staleHint: '数据超过 10 分钟未更新，展开或点刷新可更新',
+      today: '今日', collapse: '折叠', overlayToggle: '输入页悬浮卡', staleHint: '数据超过 10 分钟未更新，展开或点刷新可更新',
     }
     const en = {
       output: 'Output', input: 'Input', cacheRead: 'Cache read', cacheWrite: 'Cache write',
@@ -1047,7 +1063,7 @@ const CHART_CSS = `
       signedOut: 'Not signed in', noAdapter: 'No DeepSeek balance info (not the same as zero)',
       bonus: 'bonus', toppedUp: 'topped up', unavailable: 'unavailable',
       balDeepseekApi: 'DeepSeek API', balDeepseekAccount: 'DeepSeek account',
-      today: 'Today', collapse: 'Collapse', staleHint: 'Not updated for over 10 minutes — expand or refresh',
+      today: 'Today', collapse: 'Collapse', overlayToggle: 'Floating card', staleHint: 'Not updated for over 10 minutes — expand or refresh',
     }
 
     /* ---------------- 偏好 ---------------- */
@@ -1155,6 +1171,16 @@ const CHART_CSS = `
     /* ---------------- 悬浮卡（输入页常驻） ---------------- */
 
     const OVERLAY_KEY = 'dsh-usage-dashboard.overlay'
+    const OVERLAY_ON_KEY = 'dsh-usage-dashboard.overlay.enabled'
+
+    function overlayEnabled() {
+      try { return localStorage.getItem(OVERLAY_ON_KEY) !== '0' } catch { return true }
+    }
+
+    function setOverlayEnabled(on) {
+      try { localStorage.setItem(OVERLAY_ON_KEY, on ? '1' : '0') } catch { /* 隐私模式忽略 */ }
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('dsh-usage-overlay-change'))
+    }
 
     function readOverlay() {
       try { return JSON.parse(localStorage.getItem(OVERLAY_KEY) || 'null') || {} } catch { return {} }
@@ -1166,6 +1192,13 @@ const CHART_CSS = `
      */
     function UsageOverlay({ t }) {
       const state = useDashboard()
+      const [on, setOn] = React.useState(overlayEnabled)
+      React.useEffect(() => {
+        if (typeof window === 'undefined') return undefined
+        const sync = () => setOn(overlayEnabled())
+        window.addEventListener('dsh-usage-overlay-change', sync)
+        return () => window.removeEventListener('dsh-usage-overlay-change', sync)
+      }, [])
       const [conf, setConf] = React.useState(readOverlay)
       const [drag, setDrag] = React.useState(null)
       const moved = React.useRef(false)
@@ -1181,7 +1214,7 @@ const CHART_CSS = `
         if (open && !wasOpen.current) state.touch()
         wasOpen.current = open
       }, [open, state])
-      if (!state.scan) return null
+      if (!on || !state.scan) return null
 
       const now = Date.now()
       const today = buildView(state.scan, { range: 'today', project: '*', provider: '*', model: '*', custom: null }, now)
@@ -1196,12 +1229,15 @@ const CHART_CSS = `
         const r = cardRef.current?.getBoundingClientRect()
         if (!r) return
         moved.current = false
-        e.currentTarget.setPointerCapture?.(e.pointerId)
+        // 先不捕获指针：一捕获，内部按钮的 click 就收不到了，胶囊点不开
         setDrag({ dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height, x0: e.clientX, y0: e.clientY })
       }
       const onMove = e => {
         if (!drag) return
-        if (Math.abs(e.clientX - drag.x0) > 4 || Math.abs(e.clientY - drag.y0) > 4) moved.current = true
+        if (!moved.current && (Math.abs(e.clientX - drag.x0) > 4 || Math.abs(e.clientY - drag.y0) > 4)) {
+          moved.current = true
+          cardRef.current?.setPointerCapture?.(e.pointerId)
+        }
         if (!moved.current) return
         patch({
           x: Math.min(Math.max(e.clientX - drag.dx, 8), Math.max(8, window.innerWidth - drag.w - 8)),
@@ -1240,13 +1276,22 @@ const CHART_CSS = `
         : h('div', { ref: cardRef, className: 'ud-fly' + (stale ? ' is-stale' : ''), style,
             onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
             title: `${t('checked')} ${clock}` },
-          h('button', { type: 'button', className: 'ud-fly-pill',
-            onClick: () => { if (!moved.current) patch({ open: true }) } },
+          h('div', {
+            className: 'ud-fly-pill', role: 'button', tabIndex: 0,
+            onClick: () => { if (!moved.current) patch({ open: true }) },
+            onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); patch({ open: true }) } },
+          },
             h('span', { className: 'ud-fly-dot' }),
             h('span', { className: 'ud-fly-tag' }, t('today')),
             h('span', { className: 'ud-fly-v' }, cashText),
             h('span', { className: 'ud-fly-sep' }, '\u00b7'),
-            h('span', { className: 'ud-fly-v' }, tokens)))
+            h('span', { className: 'ud-fly-v' }, tokens)),
+          h('button', {
+            type: 'button', className: 'ud-fly-refresh', title: t('refreshTip'), 'aria-label': t('refreshTip'),
+            disabled: state.busy,
+            onPointerDown: e => e.stopPropagation(),
+            onClick: e => { e.stopPropagation(); state.reload() },
+          }, refreshIcon()))
 
       return h('div', { 'data-usage-dashboard': true, className: 'ud-fly-host' },
         h('style', { 'data-plugin': NS }, CHART_CSS),
@@ -1258,6 +1303,7 @@ const CHART_CSS = `
       const [filters, updateFilters] = useFilters()
       const [mode, setMode] = React.useState('token')
       const [hideCache, setHideCache] = React.useState(false)
+      const [overlayOn, setOverlayOn] = React.useState(overlayEnabled)
 
       if (!state.scan) {
         if (state.phase === 'error') {
@@ -1430,8 +1476,13 @@ const CHART_CSS = `
             })),
           h('div', { className: 'ud-split' }, trendPanel, providerPanel),
           projectPanel,
-          h('p', { className: 'ud-lede', style: { margin: 0 } },
-            `${t('caveat')} · ${t('factCount')} ${view.factCount}`),
+          h('div', { className: 'ud-foot-row' },
+            h('p', { className: 'ud-lede', style: { margin: 0 } },
+              `${t('caveat')} · ${t('factCount')} ${view.factCount}`),
+            h('label', { className: 'ud-switch' },
+              h('input', { type: 'checkbox', checked: overlayOn,
+                onChange: e => { setOverlayOn(e.target.checked); setOverlayEnabled(e.target.checked) } }),
+              h('span', null, t('overlayToggle')))),
           scan.warnings && scan.warnings.length
             ? h('div', { className: 'ud-alert', role: 'status' },
               h('div', null, ...scan.warnings.map((w, i) => h('div', { key: i }, w))))

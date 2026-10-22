@@ -107,7 +107,14 @@ function environment({ scan, seedStorage = {}, request, balances } = {}) {
     for (const fn of listeners) fn()
   }
 
-  const win = { __ModuleLoader__: { load: d => { definition = d } } }
+  const winListeners = new Set()
+  const win = {
+    __ModuleLoader__: { load: d => { definition = d } },
+    addEventListener: (n, fn) => winListeners.add(fn),
+    removeEventListener: (n, fn) => winListeners.delete(fn),
+    dispatchEvent: () => { for (const fn of [...winListeners]) fn(); return true },
+  }
+  globalThis.window = win
   new Function('window', source)(win)
   const plugin = definition.factory(name => { assert.equal(name, 'react'); return React })
   const t = key => dictionaries.zh[key] ?? key
@@ -471,10 +478,21 @@ await test('the floating card shows today cost and tokens, and expands to the br
   const pill = await e.renderSlot('shell.overlay')
   const text = flatten(pill)
   assert.ok(text.includes('今日'), '折叠态要有「今日」')
+  assert.ok(byClass(pill, 'ud-fly-refresh').length === 1, '折叠态只该有一个刷新按钮')
   assert.ok(/¥\s?12\.50/.test(text), '折叠态显示今日费用')
   assert.ok(text.includes('4M') || text.includes('4.1M'), '折叠态显示今日 token')
+  // 折叠态自带刷新按钮，且不误触展开
+  const refresh = byClass(pill, 'ud-fly-refresh')[0]
+  assert.ok(refresh, '折叠胶囊要有刷新按钮')
+  assert.equal(all(refresh, 'svg').length, 1, '刷新按钮是图标')
+  assert.equal(refresh.props.disabled, false)
+  const before = e.calls.filter(c => c.includes('refresh=1')).length
+  refresh.props.onClick({ stopPropagation() {} })
+  await new Promise(r => setImmediate(r))
+  await new Promise(r => setImmediate(r))
+  assert.ok(e.calls.filter(c => c.includes('refresh=1')).length > before, '点刷新要真的重算')
   // 展开
-  const btn = all(pill, 'button')[0]
+  const btn = byClass(pill, 'ud-fly-pill')[0]
   btn.props.onClick()
   const openTree = await e.renderSlot('shell.overlay')
   const openText = flatten(openTree)
@@ -502,6 +520,20 @@ await test('entering the panel does not re-scan when the cache is recent', async
 })
 
 const balancesOf = rows => ({ rows, checkedAt: NOW })
+
+await test('the settings switch turns the floating card off and back on', async () => {
+  const e = environment({ scan: makeScan([fact()]), seedStorage: {} })
+  e.store.set('dsh-usage-dashboard.overlay.enabled', '0')
+  await e.settle()
+  const off = await e.renderSlot('shell.overlay')
+  assert.equal(flatten(off).trim(), '', '关掉后不应渲染悬浮卡')
+  const sw = byClass(e.tree(), 'ud-switch')[0]
+  assert.ok(sw, '设置页要有一个开关')
+  sw.children.find(c => c && c.type === 'input').props.onChange({ target: { checked: true } })
+  await new Promise(r => setImmediate(r))
+  const on = await e.renderSlot('shell.overlay')
+  assert.ok(flatten(on).includes('今日'), '打开后悬浮卡回来')
+})
 
 await test('account balance is shown again, with top-up and bonus split apart', async () => {
   const e = environment({ scan: makeScan([fact()]), balances: balancesOf([
